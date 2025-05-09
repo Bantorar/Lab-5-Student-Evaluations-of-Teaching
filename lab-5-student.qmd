@@ -17,6 +17,7 @@ of teaching data.
 
 **You are expected to use functions from `dplyr` to do your data manipulation!**
 
+
 # Part 1: GitHub Workflow
 
 Now that you have the Lab 5 repository cloned, you need to make sure you can 
@@ -153,7 +154,8 @@ included in the `teacher_evals_codebook.pdf`.
 ```{r}
 #| label: setup
 # code chunk for loading packages
-
+library(dplyr)
+library(tidyverse)
 ```
 
 **2. Load in the `teacher_evals` data.** 
@@ -161,7 +163,7 @@ included in the `teacher_evals_codebook.pdf`.
 ```{r}
 #| label: load-data
 # code chunk for importing the data
-
+teach_eval <- read.csv("data-raw/teacher_evals.csv")
 ```
 
 ### Data Inspection + Summary
