@@ -4,10 +4,10 @@ author: "Bayard Vinant-Tang"
 date: "2025-05-04"
 format:
   html:
-    embed-resources: true   # ✅ plots and figures embedded in the HTML file
-    code-tools: true        # ✅ source code visible and collapsible
+    embed-resources: true   # plots and figures embedded in the HTML file
+    code-tools: true        # source code visible and collapsible
 execute:
-  echo: true                # ✅ all code and output will be shown
+  echo: true                # all code and output will be shown
   warning: true
   message: true
 ---
@@ -163,7 +163,7 @@ library(tidyverse)
 ```{r}
 #| label: load-data
 # code chunk for importing the data
-teach_eval <- read.csv("data-raw/teacher_evals.csv")
+teacher_eval <- read.csv("data-raw/teacher_evals.csv")
 ```
 
 ### Data Inspection + Summary
@@ -173,16 +173,22 @@ teach_eval <- read.csv("data-raw/teacher_evals.csv")
 ```{r}
 #| label: explore-data
 # you may want to use code to answer this question
-
+summary(teacher_eval)
 ```
 
+
 **4. What is the unit of observation (i.e. a single row in the dataset) identified by?**
+
 
 ```{r}
 #| label: row-identification
 # you may want to use code to answer this question
-
+glimpse(teacher_eval)
+colnames(teacher_eval)
+head(teacher_eval)
 ```
+
+
 
 **5. Use _one_ `dplyr` pipeline to clean the data by:**
 
@@ -196,7 +202,15 @@ teach_eval <- read.csv("data-raw/teacher_evals.csv")
 ```{r}
 #| label: data-cleaning
 # code chunk for Q4
+teacher_evals_clean <- teacher_eval %>%
+  rename(sex = gender) %>%
+  filter(no_participants < 10) %>%
+  mutate(
+    teacher_id = as.character(teacher_id)
+  ) %>%
+  select(course_id, teacher_id, question_no, no_participants, resp_share, SET_score_avg, percent_failed_cur, academic_degree, seniority, sex)
 
+write_csv(teacher_evals_clean, file = "data-clean/teacher_evals_clean.csv")
 ```
 
 **6. How many unique instructors and unique courses are present in the cleaned dataset?**
@@ -204,31 +218,82 @@ teach_eval <- read.csv("data-raw/teacher_evals.csv")
 ```{r}
 #| label: unique-courses
 # code chunk for Q5
-
+summarize(teacher_evals_clean)
+n_distinct(teacher_evals_clean$teacher_id)
 ```
 
 **7. One teacher-course combination has some missing values, coded as `NA`. Which instructor has these missing values? Which course? What variable are the missing values in?**
 
 ```{r}
 #| label: uncovering-missing-values
-# code chunk for Q6
+#| message: false
+#| warning: false
 
+# Step 1: Get one row per instructor
+instructors_unique <- teacher_evals_clean %>%
+  select(teacher_id, academic_degree, seniority, sex) %>%
+  distinct(teacher_id, .keep_all = TRUE)
+
+# Step 2: Count each demographic variable
+degree_counts <- instructors_unique %>%
+  count(academic_degree, sort = TRUE)
+
+seniority_counts <- instructors_unique %>%
+  count(seniority, sort = TRUE)
+
+sex_counts <- instructors_unique %>%
+  count(sex, sort = TRUE)
+
+# Show the outputs
+degree_counts
+seniority_counts
+sex_counts
 ```
 
 **8. What are the demographics of the instructors in this study? Investigate the variables `academic_degree`, `seniority`, and `sex` and summarize your findings in ~3 complete sentences.**
 
 ```{r}
 #| label: exploring-demographics-of-instructors
+#| message: false
+#| warning: false
 # code chunk for Q7
 
+# Step 1: Count number of unique questions per teacher-course combo
+questions_per_course <- teacher_evals_clean %>%
+  group_by(teacher_id, course_id) %>%
+  summarise(n_questions = n_distinct(question_no), .groups = "drop")
+
+# Step 2: Count how many combinations used all 9 questions
+num_all_nine <- questions_per_course %>%
+  filter(n_questions == 9) %>%
+  nrow()
+
+# Step 3: Total combinations for reference
+total_combinations <- nrow(questions_per_course)
+
+# Step 4: Proportion
+prop_all_nine <- num_all_nine / total_combinations
 ```
 
 **9. Each course seems to have used a different subset of the nine evaluation questions. How many teacher-course combinations asked all nine questions?**
 
 ```{r}
 #| label: teacher-course-asked-every-question
+#| message: false
+#| warning: false
 # code chunk for Q8
 
+q9_ratings <- teacher_evals_clean %>%
+  filter(question_no == 1) %>%
+  group_by(teacher_id) %>%
+  summarise(avg_q1_score = mean(SET_score_avg, na.rm = TRUE)) %>%
+  arrange(avg_q1_score)
+
+q9_lowest  <- slice_head(q9_ratings, n = 1)
+q9_highest <- slice_tail(q9_ratings, n = 1)
+
+q9_lowest
+q9_highest
 ```
 
 ## Rate my Professor
@@ -237,22 +302,64 @@ teach_eval <- read.csv("data-raw/teacher_evals.csv")
 
 ```{r}
 #| label: question-1-high-low
+#| message: false
+#| warning: false
 # code chunk for Q9
+q10_fail_rate <- teacher_evals_clean %>%
+  filter(seniority == "1 year") %>%
+  group_by(teacher_id) %>%
+  summarise(avg_fail_rate = mean(percent_failed_cur, na.rm = TRUE)) %>%
+  arrange(avg_fail_rate)
 
+q10_lowest  <- slice_head(q10_fail_rate, n = 1)
+q10_highest <- slice_tail(q10_fail_rate, n = 1)
+
+q10_lowest
+q10_highest
 ```
 
 **11. Which instructors with one year of experience had the highest and lowest average percentage of students failing in the current semester across all their courses?**
 
 ```{r}
 #| label: one-year-experience-failing-students
+#| message: false
+#| warning: false
 # code chunk for Q10
+q11_response <- teacher_evals_clean %>%
+  filter(
+    sex == "female",
+    academic_degree %in% c("doctorate", "professor")
+  ) %>%
+  group_by(teacher_id) %>%
+  summarise(avg_resp_share = mean(resp_share, na.rm = TRUE)) %>%
+  arrange(avg_resp_share)
 
+q11_lowest  <- slice_head(q11_response, n = 1)
+q11_highest <- slice_tail(q11_response, n = 1)
+
+q11_lowest
+q11_highest
 ```
 
 **12. Which female instructors with either a doctorate or professional degree had the highest and lowest average percent of students responding to the evaluation across all their courses?**
 
 ```{r}
 #| label: female-instructor-student-response
+#| message: false
+#| warning: false
 # code chunk for Q11
+q12_response <- teacher_evals_clean %>%
+  filter(
+    sex == "female",
+    academic_degree %in% c("doctorate", "professional")
+  ) %>%
+  group_by(teacher_id) %>%
+  summarise(avg_resp_share = mean(resp_share, na.rm = TRUE)) %>%
+  arrange(avg_resp_share)
 
+q12_lowest  <- slice_head(q12_response, n = 1)
+q12_highest <- slice_tail(q12_response, n = 1)
+
+q12_lowest
+q12_highest
 ```
