@@ -176,6 +176,7 @@ teacher_eval <- read.csv("data-raw/teacher_evals.csv")
 summary(teacher_eval)
 ```
 
+The dataset contains student evaluations of teaching (SET) collected from a university in Poland during the 2020–2021 academic year, when instruction was fully online due to the COVID-19 pandemic. Each row records an evaluation response related to a specific question on a standardized 9-question survey assessing teaching effectiveness. In addition to SET scores, the dataset includes variables about the instructor (e.g., gender, degree, seniority), course-level statistics (e.g., response rate, percent of students who failed), and contextual factors like the number of participants. The rich combination of survey and performance data enables analysis of patterns and potential biases in student evaluations.
 
 **4. What is the unit of observation (i.e. a single row in the dataset) identified by?**
 
@@ -188,7 +189,7 @@ colnames(teacher_eval)
 head(teacher_eval)
 ```
 
-
+Each row in the dataset represents the response to a specific survey question for a given instructor-course combination. That is, the unit of observation is identified by the combination of teacher_id, course_id, and question_no. This structure allows the dataset to store one row per question answered for each course taught by an instructor.
 
 **5. Use _one_ `dplyr` pipeline to clean the data by:**
 
@@ -258,22 +259,20 @@ sex_counts
 #| warning: false
 # code chunk for Q7
 
-# Step 1: Count number of unique questions per teacher-course combo
-questions_per_course <- teacher_evals_clean %>%
-  group_by(teacher_id, course_id) %>%
-  summarise(n_questions = n_distinct(question_no), .groups = "drop")
+instructors_unique <- teacher_evals_clean %>%
+  select(teacher_id, academic_degree, seniority, sex) %>%
+  distinct(teacher_id, .keep_all = TRUE)
 
-# Step 2: Count how many combinations used all 9 questions
-num_all_nine <- questions_per_course %>%
-  filter(n_questions == 9) %>%
-  nrow()
+degree_counts <- instructors_unique %>% count(academic_degree, sort = TRUE)
+seniority_counts <- instructors_unique %>% count(seniority, sort = TRUE)
+sex_counts <- instructors_unique %>% count(sex, sort = TRUE)
 
-# Step 3: Total combinations for reference
-total_combinations <- nrow(questions_per_course)
-
-# Step 4: Proportion
-prop_all_nine <- num_all_nine / total_combinations
+degree_counts
+seniority_counts
+sex_counts
 ```
+
+The majority of instructors in the dataset hold a doctorate degree, with fewer holding master's or professional degrees. Most instructors are tenured, followed by tenure-track and first-year faculty. The gender distribution is relatively balanced, though there is a slightly higher number of male instructors than female instructors.
 
 **9. Each course seems to have used a different subset of the nine evaluation questions. How many teacher-course combinations asked all nine questions?**
 
@@ -283,17 +282,18 @@ prop_all_nine <- num_all_nine / total_combinations
 #| warning: false
 # code chunk for Q8
 
-q9_ratings <- teacher_evals_clean %>%
-  filter(question_no == 1) %>%
-  group_by(teacher_id) %>%
-  summarise(avg_q1_score = mean(SET_score_avg, na.rm = TRUE)) %>%
-  arrange(avg_q1_score)
+questions_per_course <- teacher_evals_clean %>%
+  group_by(teacher_id, course_id) %>%
+  summarise(n_questions = n_distinct(question_no), .groups = "drop")
 
-q9_lowest  <- slice_head(q9_ratings, n = 1)
-q9_highest <- slice_tail(q9_ratings, n = 1)
+num_all_nine <- questions_per_course %>%
+  filter(n_questions == 9) %>%
+  nrow()
 
-q9_lowest
-q9_highest
+total_combinations <- nrow(questions_per_course)
+prop_all_nine <- num_all_nine / total_combinations
+
+tibble(all_nine = num_all_nine, total = total_combinations, proportion = prop_all_nine)
 ```
 
 ## Rate my Professor
@@ -305,17 +305,17 @@ q9_highest
 #| message: false
 #| warning: false
 # code chunk for Q9
-q10_fail_rate <- teacher_evals_clean %>%
-  filter(seniority == "1 year") %>%
+q9_ratings <- teacher_evals_clean %>%
+  filter(question_no == 901) %>%
   group_by(teacher_id) %>%
-  summarise(avg_fail_rate = mean(percent_failed_cur, na.rm = TRUE)) %>%
-  arrange(avg_fail_rate)
+  summarise(avg_q1_score = mean(SET_score_avg, na.rm = TRUE)) %>%
+  arrange(avg_q1_score)
 
-q10_lowest  <- slice_head(q10_fail_rate, n = 1)
-q10_highest <- slice_tail(q10_fail_rate, n = 1)
+q9_lowest <- slice_head(q9_ratings, n = 1)
+q9_highest <- slice_tail(q9_ratings, n = 1)
 
-q10_lowest
-q10_highest
+q9_lowest
+q9_highest
 ```
 
 **11. Which instructors with one year of experience had the highest and lowest average percentage of students failing in the current semester across all their courses?**
@@ -325,20 +325,17 @@ q10_highest
 #| message: false
 #| warning: false
 # code chunk for Q10
-q11_response <- teacher_evals_clean %>%
-  filter(
-    sex == "female",
-    academic_degree %in% c("doctorate", "professor")
-  ) %>%
+q10_fail_rate <- teacher_evals_clean %>%
+  filter(seniority == 1) %>%
   group_by(teacher_id) %>%
-  summarise(avg_resp_share = mean(resp_share, na.rm = TRUE)) %>%
-  arrange(avg_resp_share)
+  summarise(avg_fail_rate = mean(percent_failed_cur, na.rm = TRUE)) %>%
+  arrange(avg_fail_rate)
 
-q11_lowest  <- slice_head(q11_response, n = 1)
-q11_highest <- slice_tail(q11_response, n = 1)
+q10_lowest <- slice_head(q10_fail_rate, n = 1)
+q10_highest <- slice_tail(q10_fail_rate, n = 1)
 
-q11_lowest
-q11_highest
+q10_lowest
+q10_highest
 ```
 
 **12. Which female instructors with either a doctorate or professional degree had the highest and lowest average percent of students responding to the evaluation across all their courses?**
@@ -348,18 +345,15 @@ q11_highest
 #| message: false
 #| warning: false
 # code chunk for Q11
-q12_response <- teacher_evals_clean %>%
-  filter(
-    sex == "female",
-    academic_degree %in% c("doctorate", "professional")
-  ) %>%
+q11_response <- teacher_evals_clean %>%
+  filter(sex == "female", academic_degree == c("dr" , "prof")) %>%
   group_by(teacher_id) %>%
   summarise(avg_resp_share = mean(resp_share, na.rm = TRUE)) %>%
   arrange(avg_resp_share)
 
-q12_lowest  <- slice_head(q12_response, n = 1)
-q12_highest <- slice_tail(q12_response, n = 1)
+q11_lowest <- slice_head(q11_response, n = 1)
+q11_highest <- slice_tail(q11_response, n = 1)
 
-q12_lowest
-q12_highest
+q11_lowest
+q11_highest
 ```
